@@ -1,0 +1,504 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
+
+# Politician climate analysis
+
+```{r}
+library(pacman);p_load(tidyverse, circlize, dplyr, tidytext, topicmodels, tm, plotly, tidyr, kableExtra, knitr, ggrepel, gridExtra, formattable)
+
+```
+
+## Theme setup
+```{r}
+p_load(showtext)
+windows()
+font_add("Euclid Flex", "C:/Users/esben/AppData/Local/Microsoft/Windows/Fonts/EuclidFlex-Regular.otf")
+font_add("Euclid Flex Bold", "C:/Users/esben/AppData/Local/Microsoft/Windows/Fonts/EuclidFlex-Bold.otf")
+showtext_auto()
+
+theme_dgsb_light = 
+  theme_minimal() +
+  theme(
+    text = element_text(family = "Euclid Flex"),
+    plot.margin = unit(rep(1, 4), "cm"),
+    plot.title = element_text(size = 18, 
+                              family = "Euclid Flex Bold",
+                              color = "#22292F",
+                              face = "bold",
+                              margin = margin(b = 7)),
+    plot.subtitle = element_text(size = 12, 
+                                 margin = margin(b = 15)),
+    plot.caption = element_text(size = 11,
+                                margin = margin(t = 10),
+                                color = "#606F7B"),
+    panel.grid.major = element_line(color = "#DAE1E7"),
+    panel.background = element_blank(),
+    axis.text = element_text(size = 11, color = "#22292F"),
+    axis.text.x = element_text(margin = margin(t = 5)),
+    axis.text.y = element_text(margin = margin(r = -10)),
+    axis.title = element_text (size = 12),
+    axis.line = element_blank(), #element_line(color = "#3D4852")
+    axis.title.y = element_text(margin = margin(r = 5),
+                                hjust = 0.5),
+    axis.title.x = element_text(margin = margin(t = 5),
+                                hjust = 0.5))
+```
+
+## Reading data
+
+```{r}
+df <- read_csv("mf_all_tweets_20200402.csv")
+keywords <- c("klima", "klimaet", "dkgreen", "co2", "climate", "dkklima", "klima", "climatechange", "klimaforandringer", "klimaforandringerne", "grøn omstilling", "green", "grøn", "grønne", "#klima", "#climatechange", "#dkgreen")
+```
+
+## Folketingspolitikere med mængden af tweets i vores datasæt
+
+```{r Tweet table, echo=FALSE}
+df %>%
+  group_by(screen_name) %>%
+  mutate(tweet_count = n()) %>%
+  select(screen_name, tweet_count) %>%
+  arrange(desc(tweet_count)) %>%
+  distinct() %>%
+  ungroup() %>%
+  mutate(tweet_count = color_bar("lightpink")(tweet_count),  
+         screen_name = color_tile("lightblue","lightblue")(screen_name)) %>%
+  my_kable_styling("Politikeres tweets")
+```
+
+## Document-term matrix
+
+```{r}
+df <- read_csv("mf_all_tweets_20200402.csv")
+
+removeSpecialChars <- function(x) gsub("[^a-zA-Z0-9#æøåÆØÅ]", " ", x)
+
+df$text <- sapply(df$text, removeSpecialChars) %>%
+  tolower
+
+df_fil <- df %>%
+  unnest_tokens(word, text) %>%
+  anti_join(data.frame(word = stopwords(kind = "da"))) %>%
+  distinct()
+
+dtm <- df_fil %>%
+  count(tweet_id, word, sort = T) %>%
+  ungroup() %>%
+  cast_dtm(tweet_id, word, n)
+
+```
+## LDA (WARNING: Long processing time)
+```{r LDA topic modelling}
+k <- 20
+seed = 1234
+lda <- LDA(dtm, k = k, method = "GIBBS", control = list(seed = seed))
+```
+
+## Web scrape the party memberships
+```{r Scraping Folketingets website for party membership}
+p_load(rvest)
+url <- "https://www.ft.dk/Kontakt/Telefonbog?level1=MEDLEM&pageSize=200&totalNumberOfRecords=186"
+webpage <- read_html(url)
+fname <- html_nodes(webpage, ".column-documents:nth-child(2)") %>%
+  html_text %>%
+  removeSpecialChars %>%
+  str_trim
+lname <- html_nodes(webpage, ".column-documents:nth-child(3)") %>%
+  html_text %>%
+  removeSpecialChars %>%
+  str_trim
+party <- html_nodes(webpage, ".column-documents:nth-child(4)") %>%
+  html_text %>%
+  removeSpecialChars %>%
+  str_trim %>%
+  str_replace("Medlem af Folketinget ", "") %>%
+  str_trim %>% 
+  substr(1, 2) %>%
+  str_trim
+
+party_members <- tibble(fname, lname, party) %>%
+  mutate(name = paste(fname, lname))
+```
+
+## Combine based on name and add membership
+```{r Combine name and party}
+polit <- read_csv("folketings_politikere.csv")
+polit <- inner_join(polit, party_members) %>%
+  group_by(party) %>%
+  arrange(party, name)
+
+```
+
+## Correlating party and topics
+```{r Party and topics}
+df <- inner_join(df, polit, by = "screen_name")
+
+# colnames(df)[7] <- "document"
+# df$document <- as.character(df$document)
+
+df$document <- as.character(df$tweet_id)
+
+
+name_topic <- tidy(lda, matrix = "gamma") %>%
+  inner_join(df, by = "document") %>%
+  select(name, topic, gamma) %>%
+  group_by(name, topic) %>%
+  mutate(mean = mean(gamma)) %>%
+  select(-gamma) %>%
+  distinct()
+
+party_topic <- tidy(lda, matrix = "gamma") %>%
+  inner_join(df, by = "document") %>%
+  select(party, topic, gamma) %>%
+  group_by(party, topic) %>%
+  mutate(mean = mean(gamma)) %>%
+  select(-gamma) %>%
+  distinct()
+
+name_topic$topic = paste("Topic", name_topic$topic, sep = " ")
+party_topic$topic = paste("Topic", party_topic$topic, sep = " ")
+
+```
+
+## Make circular diagram by member and topic
+
+```{r fig.height=9, fig.width=9}
+circos.clear()
+
+plot_circle_topic <- chordDiagram(member_topic, transparency = .2)
+
+```
+
+## Check topic content
+```{r}
+n_docs = 5
+topics_tidy <- tidy(lda, matrix = "gamma")
+top_documents <- topics_tidy %>%
+  group_by(topic) %>%
+  arrange(topic, desc(gamma)) %>%
+  slice(seq_len(n_docs)) %>%
+  arrange(topic, gamma) %>%
+  mutate(row = row_number()) %>%
+  ungroup() %>%
+  #re-label topics
+  mutate(topic = paste("Topic", topic, sep = " "))
+
+top_sources <- top_documents %>%
+  #join back to the tidy form to get the source field
+  inner_join(df) %>%
+  select(document, name, topic) %>%
+  distinct() %>%
+  group_by(topic) %>%
+  #needed by word_chart (not relevant here)
+  mutate(row = row_number()) %>%
+  ungroup()
+
+top_contents <- top_documents %>%
+  #join back to the tidy form to get the source field
+  inner_join(df) %>%
+  select(document, text, topic) %>%
+  distinct() %>%
+  group_by(topic) %>%
+  #needed by word_chart (not relevant here)
+  mutate(row = row_number()) %>%
+  ungroup()
+
+# Topic 1: greenland + English rating (??)
+# Topic 2: very number heavy
+# Topic 3: education + children and socially challenged
+# Topic 4: German
+# Topic 5: names and P.E.T. - maybe some free speech stuff?
+# Topic 6: Empty
+# Topic 7: skærpet + something DF + regering?
+# Topic 8: English, British (2 texts)
+# Topic 9: tomatoes (haha)
+# Topic 10: Tax, money, equality
+# Topic 11: Green electricity and restart!!
+# Topic 12: Pension + spolitik's earlier pension by job
+# Topic 13: Empty
+# Topic 14: Events, time stamps
+# Topic 15: Research
+# Topic 16: #covid19
+# Topic 17: Journalism, media and proof
+# Topic 18: Congratulations!
+# Topic 19: Sports
+# Topic 20: Finanslov 
+
+# 11 is green
+
+top_contents[top_contents$topic == "Topic 11",]$text
+
+```
+
+## Model influence on topic 11
+
+```{r Klimaomtale, fig.height=4.5, fig.width=7}
+party_topic <- tidy(lda, matrix = "gamma") %>%
+  inner_join(df, by = "document") %>%
+  select(party, topic, gamma) %>%
+  group_by(party, topic) %>%
+  mutate(mean = mean(gamma)) %>%
+  select(-gamma) %>%
+  distinct()
+
+party_topic <- party_topic[party_topic$topic == 11,]
+party_topic$topic <- "Klima"
+
+arrange(party_topic, mean)
+
+partycolors <- c(
+  "LG" = "#000000",
+  "AL" = "#00FF00",
+  "RV" =  "#E5007D",
+  "SF" =  "#C4161C",
+  "S" =  "#C8032C",
+  "V" = "#002883",
+  "EL" = "#BA2647",
+  "KF" = "#00583C",
+  "LA" = "#12213F",
+  "NB" = "#888888",
+  "DF" = "#EE0000",
+  "IA" = "#AB2328"
+)
+
+party_topic$mean <- party_topic$mean * 100
+party_topic <- arrange(party_topic, desc(mean))
+party_topic$party <- as.factor(party_topic$party)
+partycolors <- rev(partycolors)
+
+ggplot(party_topic) +
+  aes(x = reorder(party,mean), y = mean) +
+  theme_minimal() +
+  geom_bar(stat = "identity", fill = partycolors, color = "black", width = 1) +
+  theme(legend.position = "none") +
+  labs(x = "", y = "Klimaomtale", 
+       title = "Klimaomtale fra de forskellige partier på Twitter",
+       subtitle = "Udregnet med gennemsnittet af deres medlemmers klima-tweets.",
+       caption = "kramar.ai, Esben Kran") +
+  ylim(0,10) +
+  coord_flip() +
+  theme_dgsb_light +
+  theme(panel.grid.major = element_blank())
+
+
+```
+
+## Map top sources
+```{r fig.height=6, fig.width=7}
+member_topic <- name_topic[name_topic$topic == 11,] %>%
+  left_join(party_members, by = "name") %>%
+  select(name, mean, party, fname, lname) %>%
+  group_by(party) %>%
+  mutate(mean = mean * 100) %>%
+  arrange(desc(mean))
+
+ggplot(member_topic[1:20,]) +
+  aes(x = reorder(lname, mean), y = mean, label = party, fill = party) +
+  theme_minimal() +
+  geom_text(nudge_y = 0.35)  + 
+  scale_x_discrete(limits = rev(levels(df$party))) +
+  scale_fill_manual(
+    values = partycolors,
+    limits = names(partycolors)
+  ) +
+  geom_bar(stat = "identity", width = 1, color = "black") +
+  labs(x = "", y = "Klimaomtale", 
+       title = "Politikere med højest score",
+       subtitle = "Baseret på hvor meget, de snakker om klima.",
+       caption = "kramar.ai, Esben Kran") +
+  ylim(0,10) +
+  coord_flip() +
+  theme_dgsb_light +
+  theme(legend.position = "none") +
+  theme(panel.grid.major = element_blank())
+
+
+```
+
+## Analysing word freq
+
+```{r Word freq}
+# Isolating mr. Jørgensen's topic dependency
+name_topic[name_topic$name == "Dan Jørgensen" & name_topic$topic == 11,]$mean * 100
+mean(name_topic[name_topic$topic == 11,]$mean) * 100
+
+# Defining a w/o function
+log_match <- function(x, y) base::match(x, y, nomatch = 0) > 0
+
+# Looking at mr. Jørgensen's word use frequency
+word_freq <- df_fil %>%
+  filter(screen_name == "DanJoergensen") %>%
+  select(word) %>%
+  table() %>%
+  sort(decreasing = T)
+
+# Creating such a table for every politician
+df_fil_names <- inner_join(df_fil, polit[,c("screen_name", "name", "party")], by = "screen_name")
+word_freq_all <- df_fil_names %>%
+  select(name, word, party) %>%
+  group_by(party, name) %>%
+  nest %>%
+  as_tibble
+
+# Getting word frequency
+word_freq_all$data <- 
+  sapply(word_freq_all$data, function(x) {
+    select(x, word) %>%
+      table %>%
+      sort(decreasing = T)
+  })
+
+# Logging percentage = keywords
+word_freq_all <- word_freq_all %>%
+  mutate(data = sapply(data, function(x) x / sum(word_freq)))
+
+# Sum of word frequency in keywords divided by total word frequencies
+word_freq_all <- 
+  word_freq_all %>%
+  mutate(percentage =
+           sapply(data,
+                  function(x)
+                    sum(x[names(x) %in% keywords]) / sum(x))) %>%
+  arrange(desc(percentage))
+
+```
+
+## Plotting results from keyword frequency levels
+```{r Plot word freq,fig.height=6, fig.width=7}
+
+ggplot(word_freq_all[1:20,]) +
+  aes(x = reorder(name, percentage), y = percentage, label = party, fill = party) +
+  theme_minimal() +
+  geom_text(nudge_y = 0.0008)  + 
+  scale_x_discrete(limits = rev(levels(word_freq_all$party))) +
+  scale_fill_manual(
+    values = partycolors,
+    limits = names(partycolors)
+  ) +
+  #scale_y_continuous(labels = paste0(y, "%")) +
+  geom_bar(stat = "identity", width = 1, color = "black") +
+  labs(x = "", y = "Klimaomtale", 
+       title = "Politikere med højest score",
+       subtitle = "Baseret på frekvensen, de bruger ord om klimaet.",
+       caption = "kramar.ai, Esben Kran") +
+  scale_y_continuous(labels = scales::percent) +
+  coord_flip() +
+  theme_dgsb_light +
+  theme(legend.position = "none") +
+  theme(panel.grid.major = element_blank())
+
+```
+
+## Analysing sentiment score in climate tweets
+```{r}
+df <- read_csv("mf_all_tweets_20200402_sentiment.csv")
+
+removeSpecialChars <- function(x) gsub("[^a-zA-Z0-9#æøåÆØÅ]", " ", x)
+
+df$text <- sapply(df$text, removeSpecialChars) %>%
+  tolower
+
+df <- df %>%
+  select(screen_name, tweet_id, sentiment, text) %>%
+  inner_join(polit[, c("name", "screen_name", "party")], by = "screen_name")
+
+df$climate <- sapply(df$text, function(x) any(sapply(keywords, grepl, x)))
+
+df <- df %>% inner_join(polit)
+
+member_sentiment <- df %>%
+  filter(climate == T) %>%
+  group_by(name) %>%
+  summarise(sentiment = mean(sentiment),
+            chars = length(text))
+
+```
+
+# Combining the scores
+```{r}
+# Map percentage between 0-10
+word_freq_all$score1 <- 
+  (word_freq_all$percentage-min(word_freq_all$percentage))/
+  (max(word_freq_all$percentage)-min(word_freq_all$percentage)) * 10
+
+# Setup score from topics
+member_topic$score2 <- 
+  (member_topic$mean-min(member_topic$mean))/
+  (max(member_topic$mean)-min(member_topic$mean)) * 10
+
+# Map sentiment scores into 0-10
+member_sentiment$score3 <-
+  (member_sentiment$sentiment - min(member_sentiment$sentiment)) /
+  (max(member_sentiment$sentiment) - min(member_sentiment$sentiment)) *  10
+
+# member_topic        # Topic 11 member scores in 0-10 scale (6.74 is best, Mai Villadsen)
+# member_sentiment   # The mean absolute sentiment score of tweets (mapped between 0-10)
+# word_freq_all       # The percentage of climate words used in tweets (max = 1.94%, multiply by 500 to get 0-10)
+
+# Get average of the different scores
+member_final <- inner_join(member_topic, word_freq_all) %>% 
+  inner_join(member_sentiment) %>%
+  select(name, party, score1, score2, score3) %>% 
+  mutate(score = (score1 + score2 + score3)/3) %>% 
+  arrange(desc(score))
+
+party_final <- member_final %>%
+  group_by(party) %>%
+  mutate(party_score = mean(score)) %>%
+  distinct(party, score)
+
+```
+
+## Plotting the final model
+```{r fig.height=22, fig.width=8}
+ggplot(member_final) +
+  aes(x = reorder(name, score), y = score, label = party, fill = party) +
+  theme_minimal() +
+  geom_text(nudge_y = 0.5)  + 
+  scale_x_discrete(limits = rev(levels(member_final$party))) +
+  scale_fill_manual(
+    values = partycolors,
+    limits = names(partycolors)
+  ) +
+  #scale_y_continuous(labels = paste0(y, "%")) +
+  geom_bar(stat = "identity", width = 1, color = "black") +
+  labs(x = "", y = "Klimaomtale", 
+       title = "Politikeres grønne Twitter-point",
+       subtitle = "Udregnet ud fra deres tweets' frekvens af klimaord, hvor meget \nde handler om klima, og hvor positivt de snakker om klima.",
+       caption = "kramar.ai, Esben Kran") +
+  coord_flip() +
+  ylim(0,10) +
+  theme_dgsb_light +
+  theme(legend.position = "none") +
+  theme(panel.grid.major = element_blank())
+```
+
+## Plotting final party model
+```{r}
+party_final <- party_final %>% summarise(score = mean(score))
+ggplot(party_final) +
+  aes(x = reorder(party,score), y = score, fill = party) +
+  theme_minimal() +
+  scale_x_discrete(limits = rev(levels(party_final$party))) +
+  scale_fill_manual(
+    values = partycolors,
+    limits = names(partycolors)
+  ) +
+  geom_bar(stat = "identity", color = "black", width = 1) +
+  theme(legend.position = "none") +
+  labs(x = "", y = "Klimaomtale", 
+       title = "Partiers grønne Twitter-point",
+       subtitle = "Udregnet ud fra medlemmernes tweets' frekvens af klimaord, hvor \nmeget de handler om klima, og hvor positivt de snakker om klima.",
+       caption = "kramar.ai, Esben Kran") +
+  ylim(0,10) +
+  coord_flip() +
+  theme_dgsb_light +
+  theme(panel.grid.major = element_blank()) +
+  theme(legend.position = "none")
+
+member_final[member_final$party == "LG",]
+```
+
