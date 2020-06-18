@@ -4,8 +4,8 @@ Dette er den medfølgende information til artiklen udgivet på
 Den Grønne Studenterbevægelses (DGSB) blog. Her kan man finde
 koden brugt til analysen, klimaord og figurer fra analysen. 
 
-Den rå data er ikke tilgængelig her, da det ligger under Twitters
-betingelser og vi dermed ikke må dele det.
+Den rå data er ikke tilgængelig her, da det ligger under for Twitters
+betingelser, og vi dermed ikke må dele det.
 
 ## Filer
 - [klimaord.md](klimaord.md) indeholder ordene brugt i analysen
