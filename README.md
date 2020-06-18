@@ -15,19 +15,25 @@ betingelser og vi dermed ikke må dele det.
 
 ## Figurer
 Emner fundet gennem maskinlæring (3 = klimaemne)
+
 ![topics](figurer/topics.png)
 
 Hvor meget de forskellige politikere snakker om klimaemnet (3, herover)
+
 ![members topic](figurer/member_topic.png)
 
 Samme som ovenstående men for partier
+
 ![parties topic](figurer/party_topic.png)
 
 Frekvensen af klimaord i politikernes ordforbrug
+
 ![members climate word frequency](figurer/member_frequency.png)
 
 Endelig score for partierne
+
 ![final party score](figurer/party_final.png)
 
 Endelig score for politikerne
+
 ![final member score](figurer/member_final.png)
