@@ -13,12 +13,13 @@ betingelser, og vi dermed ikke må dele det.
 - [analysis.Rmd](analysis.Rmd) indeholder hele analysen ud over...
 - [analysis.py](analysis.py), der indeholder kode til at vurdere positivitet
 
-## Første fire tweets i emne 4
+## Første fem tweets i emne 14
 
-1. "fn s klimapanels nye rapport viser  at der skal handles nu for at mindske udledning af drivhusgasser fra landbruget  vi skal både se på landbrugsstøtten  jordreform og mere grøn forskning nu tager vi fat sammen   dkpol  landbrug  klima  ippc  srccl https   t co q2badhl5fy"       
-2. "fokus på grøn og bæredygtig godstransport her hos dhls innovationscenter i bonn    lastbiler der platooner og sparer brændstof  el lastbiler  droner og store ladcykler   super spændende og visionært    dkpol  dktrp  cyklistforbund  misvsvane  fdmdk https   t co s113xni729"       
-3. "ny klimalov skal binde sikre mindst 60  reduktion af drivhusgas i 2030   spolitik er klar til at hæve ambitionerne med et nyt grønt flertal  flere energibesparelser  flere grønne biler  mere havvind  en skovfond og reduktioner i landbruget  dkgreen  dkpol https   t co 7o7rfnv3tc"
-4. "klimamålet kræver politisk handling     omend over 100  grøn strøm på sigt  så kommer co2 udslip ikke langt ned  hvis ik landbrug og transport kommer med  vi skal have sat el til transporten og landbruget skal have bindende reduktionsmål   dkpol  dkgreen https   t co t7hexvj9se" 
+1. "rt  danmarksnatur  grønne trepartsforhandlinger  mere urørt skov  jordreform  naturplan med bindende mål og løfter om mere fredet og beskyt "                                                                                                                                                                            
+2. "fra sort os til grøn ros  flytrafikkens co2 udledning skal reduceres   dkgreen gjorde det med grøn omstilling af energien  nu skal transporten med  klogt at  sas selv at sætte kursen  fremtiden er grøn   også på vingerne  https   t co t9za9bvxvr"                                                                   
+3. "rt  signe munk  nu får danmark en ambitiøs og bindende klimalov med mål om 70 procent reduktion i 2030  bindende delmål  reel grøn omstilli "                                                                                                                                                                            
+4. "ny klimalov skal binde sikre mindst 60  reduktion af drivhusgas i 2030   spolitik er klar til at hæve ambitionerne med et nyt grønt flertal  flere energibesparelser  flere grønne biler  mere havvind  en skovfond og reduktioner i landbruget  dkgreen  dkpol https   t co 7o7rfnv3tc"                                 
+5. "vindmoller lavere afgift på el til varme og el til transport fremmer elektrificeringen  generel sænkelse af elafgift øger co2 udledningen indtil al el er grøn   dkpol  dkgreen"
 
 ## Figurer
 Emner fundet gennem maskinlæring (4 = klimaemne)

@@ -1,7 +1,7 @@
 ---
 title: "Hvor grønt snakker politikere *egentlig*?"
 author: "Esben Kran"
-date: "June 2, 2020"
+date: "June 19, 2020"
 output: rmarkdown::github_document
 ---
 
@@ -74,16 +74,16 @@ keywords <- c("klima", "klimaet", "dkgreen", "co2", "climate", "dkklima", "klima
 ## Folketingspolitikere med mængden af tweets i vores datasæt
 
 ```{r Tweet table, echo=FALSE}
-screen_name_1000 <- df %>%
+screen_name_100 <- df %>%
   group_by(screen_name) %>%
   mutate(tweet_count = n()) %>%
   select(screen_name, tweet_count) %>%
   arrange(desc(tweet_count)) %>%
   unique %>%
-  filter(tweet_count > 1000)
+  filter(tweet_count > 100)
 
 df <- df %>% 
-  filter(screen_name %in% screen_name_1000$screen_name)
+  filter(screen_name %in% screen_name_100$screen_name)
 
 ```
 
@@ -112,7 +112,7 @@ dtm <- df_fil %>%
 ## LDA (WARNING: Long processing time)
 ```{r LDA topic modelling}
 k <- 20
-seed = 1234
+seed = 1357
 lda <- LDA(dtm, k = k, method = "GIBBS", control = list(seed = seed))
 ```
 
@@ -235,18 +235,18 @@ top_contents <- top_documents %>%
 
 # 3 is green
 
-top_contents[top_contents$topic == "Topic 3",]$text
+top_contents[top_contents$topic == "Topic 14",]$text
 
 ```
 
 ## Plot the word clouds of each topic
 
-```{r}
+```{r fig.height=10, fig.width=8}
 ap_topics <- tidy(lda, matrix = "beta")
 
 ap_top_terms <- ap_topics %>%
   group_by(topic) %>%
-  top_n(10, beta) %>%
+  top_n(100, beta) %>%
   ungroup() %>%
   arrange(topic, -beta)
 
@@ -258,16 +258,17 @@ par(mfrow = c(1,2))
 ap_top_terms %>%
   acast(term ~ topic, value.var = "beta", fill = 0) %>%
   comparison.cloud(
-    colors = rainbow(n = 20),
-    max.words = 200,
+    colors = rainbow(n = 40),
+    max.words = 1000,
     title.bg.colors = "transparent",
-    scale = c(3,.5),
+    scale = c(4,.5),
+    use.r.layout = T,
     title.size = 1,
     rot.per = 0)
 
 ```
 
-## Model influence on topic 3
+## Model influence on topic 4
 
 ```{r Klimaomtale, fig.height=4.5, fig.width=7}
 party_topic <- tidy(lda, matrix = "gamma") %>%
@@ -278,7 +279,7 @@ party_topic <- tidy(lda, matrix = "gamma") %>%
   select(-gamma) %>%
   distinct()
 
-party_topic <- party_topic[party_topic$topic == 3,]
+party_topic <- party_topic[party_topic$topic == 14,]
 party_topic$topic <- "Klima"
 
 arrange(party_topic, mean)
@@ -301,7 +302,7 @@ partycolors <- c(
 party_topic$mean <- party_topic$mean * 100
 party_topic <- arrange(party_topic, desc(mean))
 party_topic$party <- as.factor(party_topic$party)
-partycolors <- rev(partycolors)
+partycolors <- partycolors
 
 ggplot(party_topic) +
   aes(x = reorder(party,mean), y = mean) +
@@ -320,7 +321,7 @@ ggplot(party_topic) +
 
 ## Map top sources
 ```{r fig.height=6, fig.width=7}
-member_topic <- name_topic[name_topic$topic == "Topic 3",] %>%
+member_topic <- name_topic[name_topic$topic == "Topic 14",] %>%
   left_join(party_members, by = "name") %>%
   select(name, mean, party, fname, lname) %>%
   group_by(party) %>%
@@ -353,8 +354,8 @@ ggplot(member_topic[1:20,]) +
 
 ```{r Word freq}
 # Isolating mr. Jørgensen's topic dependency
-name_topic[name_topic$name == "Dan Jørgensen" & name_topic$topic == 3,]$mean * 100
-mean(name_topic[name_topic$topic == 3,]$mean) * 100
+name_topic[name_topic$name == "Dan Jørgensen" & name_topic$topic == 14,]$mean * 100
+mean(name_topic[name_topic$topic == 14,]$mean) * 100
 
 # Defining a w/o function
 log_match <- function(x, y) base::match(x, y, nomatch = 0) > 0
@@ -452,7 +453,6 @@ word_freq_all$score1 <-
   (word_freq_all$percentage-min(word_freq_all$percentage))/
   (max(word_freq_all$percentage)-min(word_freq_all$percentage)) * 10
 
-
 # Setup score from topics
 member_topic$score2 <- 
   (member_topic$mean-min(member_topic$mean))/
@@ -471,7 +471,7 @@ member_sentiment$score3 <-
 member_final <- inner_join(member_topic, word_freq_all) %>% 
   inner_join(member_sentiment) %>%
   select(name, party, score1, score2, score3) %>% 
-  mutate(score = (score1 + score2 + score3 * 0.5)/2.5) %>% 
+  mutate(score = (score1 + score2 + score3)/3) %>% 
   arrange(desc(score))
 
 party_final <- member_final %>%
@@ -479,7 +479,8 @@ party_final <- member_final %>%
   mutate(party_score = mean(score)) %>%
   select(party, party_score) %>%
   distinct %>%
-  arrange(desc(party_score))
+  arrange(desc(party_score)) %>%
+  filter(!(party %in% c("LG", "AL", "LA", "IA", "NB")))
 ```
 
 ## Plotting the final model
@@ -506,7 +507,7 @@ ggplot(member_final) +
 ```
 
 ## Plotting final party model
-```{r}
+```{r fig.height=3.5, fig.width=8}
 colnames(party_final) <- c("party", "score")
 ggplot(party_final) +
   aes(x = reorder(party,score), y = score, fill = party) +
