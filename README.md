@@ -22,7 +22,7 @@ betingelser, og vi dermed ikke må dele det.
 5. "vindmoller lavere afgift på el til varme og el til transport fremmer elektrificeringen  generel sænkelse af elafgift øger co2 udledningen indtil al el er grøn   dkpol  dkgreen"
 
 ## Figurer
-Emner fundet gennem maskinlæring (4 = klimaemne)
+Emner fundet gennem maskinlæring (14 = klimaemne), farve = tal = emne.
 
 ![topics](figurer/topics.png)
 
