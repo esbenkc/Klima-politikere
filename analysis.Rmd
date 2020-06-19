@@ -484,7 +484,7 @@ party_final <- member_final %>%
 ```
 
 ## Plotting the final model
-```{r fig.height=18, fig.width=8}
+```{r fig.height=20, fig.width=8}
 ggplot(member_final) +
   aes(x = reorder(name, score), y = score, label = party, fill = party) +
   theme_minimal() +
@@ -507,7 +507,7 @@ ggplot(member_final) +
 ```
 
 ## Plotting final party model
-```{r fig.height=3.5, fig.width=8}
+```{r fig.height=4.5, fig.width=8}
 colnames(party_final) <- c("party", "score")
 ggplot(party_final) +
   aes(x = reorder(party,score), y = score, fill = party) +
@@ -521,7 +521,8 @@ ggplot(party_final) +
   theme(legend.position = "none") +
   labs(x = "", y = "Klimaomtale", 
        title = "Partiers grønne Twitter-point",
-       subtitle = "Udregnet ud fra medlemmernes tweets' frekvens af klimaord, hvor \nmeget de handler om klima, og hvor positivt de snakker om klima.") +
+       subtitle = "Udregnet ud fra medlemmernes tweets' frekvens af klimaord, hvor \nmeget de handler om klima, og hvor positivt de snakker om klima.",
+       caption = "Partier med færre end 5 Twitter-brugere ekskluderet") +
   ylim(0,10) +
   coord_flip() +
   theme_dgsb_light +
