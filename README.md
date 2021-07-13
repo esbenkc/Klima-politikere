@@ -1,4 +1,5 @@
-# Hvor grønt snakker politikerne _egentlig_?
+# 🌍 Hvor grønt snakker politikerne _egentlig_?
+[Link til artiklen](https://www.dgsb.dk/blog/hvor-gront-snakker-politikerne-egentlig)
 ## Beskrivelse
 Dette er den medfølgende information til artiklen udgivet på 
 Den Grønne Studenterbevægelses (DGSB) blog. Her kan man finde
